@@ -58,6 +58,9 @@ export type ModelOptions =
   | 'gpt-4-0125-preview'
   | 'gpt-4-turbo'
   | 'gpt-4-turbo-2024-04-09'
+  | 'gpt-4o-2024-08-06'
+  | 'gpt-4o-mini'
+  | 'gpt-4o-mini-2024-07-18'
   | 'gpt-3.5-turbo'
   | 'gpt-3.5-turbo-16k'
   | 'gpt-3.5-turbo-1106'
@@ -72,6 +75,7 @@ export type TotalTokenUsed = {
     completionTokens: number;
   };
 };
+
 export interface LocalStorageInterfaceV0ToV1 {
   chats: ChatInterface[];
   currentChatIndex: number;
@@ -101,6 +105,7 @@ export interface LocalStorageInterfaceV2ToV3 {
   theme: Theme;
   autoTitle: boolean;
 }
+
 export interface LocalStorageInterfaceV3ToV4 {
   chats: ChatInterface[];
   currentChatIndex: number;
