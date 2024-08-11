@@ -43,5 +43,6 @@
   "cloneChat": "Chat klonen",
   "cloned": "Klonen erfolgreich",
   "enterToSubmit": "Drücke Enter zum absenden",
+  "codeSecurityPrefix": "Code-Sicherheits Präfix",
   "submitPlaceholder": "Verfasse eine Nachricht oder klicke auf [/] für gespeicherte Prompts..."
 }

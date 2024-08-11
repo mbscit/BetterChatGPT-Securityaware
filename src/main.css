@@ -236,6 +236,13 @@
   }
 }
 
+.prompt-prefix {
+  color: rgba(107, 114, 128);
+  font-family: Arial, sans-serif; /* Optional: Specify a font */
+  font-size: 16px; /* Optional: Adjust the font size */
+  /* Add any additional styles if needed */
+}
+
 :not(pre) > code.hljs,
 :not(pre) > code[class*='language-'] {
   border-radius: 0.3em;

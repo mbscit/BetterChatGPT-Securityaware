@@ -43,5 +43,6 @@
   "cloneChat": "Clone Chat",
   "cloned": "Cloned",
   "enterToSubmit": "Enter to submit",
+  "codeSecurityPrefix": "Code Security Prefix",
   "submitPlaceholder": "Type a message or click [/] for prompts..."
 }

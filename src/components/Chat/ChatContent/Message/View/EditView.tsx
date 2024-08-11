@@ -9,6 +9,7 @@ import { ChatInterface } from '@type/chat';
 import PopupModal from '@components/PopupModal';
 import TokenCount from '@components/TokenCount';
 import CommandPrompt from '../CommandPrompt';
+import Toggle from '@components/Toggle';
 
 const EditView = ({
   content,
@@ -89,7 +90,10 @@ const EditView = ({
     const updatedMessages = updatedChats[currentChatIndex].messages;
     if (sticky) {
       if (_content !== '') {
-        updatedMessages.push({ role: inputRole, content: _content });
+        let finalContent = _content;
+        if (codeSecurityPrefix)
+          finalContent = securityPrefix + '\n' + _content;
+        updatedMessages.push({ role: inputRole, content: finalContent });
       }
       _setContent('');
       resetTextAreaHeight();
@@ -119,8 +123,20 @@ const EditView = ({
     }
   }, []);
 
+  const [codeSecurityPrefix, setCodeSecurityPrefix] = useState<boolean>(false);
+  const toggleCodeSecurityPrefix = () => {
+    setCodeSecurityPrefix((prev) => !prev);
+  };
+  const securityPrefix = 'You are a developer who is very security-aware and avoids weaknesses in the code.';
+
   return (
     <>
+      {!sticky || <Toggle
+        label={t('codeSecurityPrefix') as string}
+        isChecked={codeSecurityPrefix}
+        setIsChecked={toggleCodeSecurityPrefix}
+      />}
+      {sticky && codeSecurityPrefix && <div className="prompt-prefix">{securityPrefix}</div>}
       <div
         className={`w-full ${
           sticky
