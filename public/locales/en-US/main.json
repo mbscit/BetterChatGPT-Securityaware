@@ -34,6 +34,7 @@
   "resetCost": "Reset Costs",
   "countTotalTokens": "Count total tokens",
   "morePrompts": "You can find more prompts here: ",
+  "codeSecurityAgent": "Code Security Agent (Experimental)",
   "clearPrompts": "Clear prompts",
   "postOnShareGPT": {
     "title": "Post on ShareGPT",

@@ -33,6 +33,7 @@
   "total": "Gesamt",
   "resetCost": "Kosten zurücksetzen",
   "countTotalTokens": "Gesamte Tokens zusammenrechnen",
+  "codeSecurityAgent": "Code-Sicherheits Agent (Experimental)",
   "morePrompts": "Du findest mehr Prompts hier: ",
   "clearPrompts": "Prompts löschen",
   "postOnShareGPT": {

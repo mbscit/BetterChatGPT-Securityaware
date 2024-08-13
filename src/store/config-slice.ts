@@ -16,6 +16,7 @@ export interface ConfigSlice {
   inlineLatex: boolean;
   markdownMode: boolean;
   countTotalTokens: boolean;
+  codeSecurityAgent: boolean;
   totalTokenUsed: TotalTokenUsed;
   setOpenConfig: (openConfig: boolean) => void;
   setTheme: (theme: Theme) => void;
@@ -29,6 +30,7 @@ export interface ConfigSlice {
   setInlineLatex: (inlineLatex: boolean) => void;
   setMarkdownMode: (markdownMode: boolean) => void;
   setCountTotalTokens: (countTotalTokens: boolean) => void;
+  setCodeSecurityAgent: (codeSecurityAgent: boolean) => void;
   setTotalTokenUsed: (totalTokenUsed: TotalTokenUsed) => void;
 }
 
@@ -45,6 +47,7 @@ export const createConfigSlice: StoreSlice<ConfigSlice> = (set, get) => ({
   inlineLatex: false,
   markdownMode: true,
   countTotalTokens: false,
+  codeSecurityAgent: false,
   totalTokenUsed: {},
   setOpenConfig: (openConfig: boolean) => {
     set((prev: ConfigSlice) => ({
@@ -116,6 +119,12 @@ export const createConfigSlice: StoreSlice<ConfigSlice> = (set, get) => ({
     set((prev: ConfigSlice) => ({
       ...prev,
       countTotalTokens: countTotalTokens,
+    }));
+  },
+  setCodeSecurityAgent: (codeSecurityAgent: boolean) => {
+    set((prev: ConfigSlice) => ({
+      ...prev,
+      codeSecurityAgent: codeSecurityAgent,
     }));
   },
   setTotalTokenUsed: (totalTokenUsed: TotalTokenUsed) => {

@@ -1,7 +1,7 @@
 import React from 'react';
 import useStore from '@store/store';
 import { useTranslation } from 'react-i18next';
-import { ChatInterface, MessageInterface } from '@type/chat';
+import { ChatInterface, ConfigInterface, MessageInterface } from '@type/chat';
 import { getChatCompletion, getChatCompletionStream } from '@api/api';
 import { parseEventSource } from '@api/helper';
 import { limitMessageTokens, updateTotalTokenUsed } from '@utils/messageUtils';
@@ -108,15 +108,113 @@ const useSubmit = () => {
         const reader = stream.getReader();
         let reading = true;
         let partial = '';
+        let inBlock = false;
+        let blockContent = '';
+        let blockLanguageChecked = false;
+        let blockLanguage = '';
+        let indent = '';  // To capture the initial indentation level
+        let blockPlaceholder = (language: string = '', indent: string = '') =>
+          '\n' + indent + '```' + (language ? language : 'text') + '\n' + indent + 'Snippet under review by Code Security Agent\n' + indent + '```\n';
+        let backticks = '';
         while (reading && useStore.getState().generating) {
           const { done, value } = await reader.read();
           const result = parseEventSource(
             partial + new TextDecoder().decode(value)
           );
           partial = '';
-
           if (result === '[DONE]' || done) {
             reading = false;
+          } else if (useStore.getState().codeSecurityAgent) {
+            await result.reduce(async (outputPromise, curr) => {
+              let output = '';
+              await outputPromise; // Ensure the promise chain is maintained
+
+              if (typeof curr === 'string') {
+                partial += curr;
+              } else {
+                let content = curr.choices[0]?.delta?.content ?? null;
+                if (content) {
+                  const updatedChats = JSON.parse(JSON.stringify(useStore.getState().chats));
+                  const updatedMessages = updatedChats[currentChatIndex].messages;
+
+                  // Handle backticks in the content
+                  for (let i = 0; i < content.length; i++) {
+                    if (content[i] === '`') {
+                      backticks += '`';
+                    } else if (backticks.length < 3) {
+                      backticks = '';
+                    }
+                  }
+
+                  if (backticks && backticks.length == 3) {
+                    if (inBlock) {
+                      // End of a code block
+                      blockContent += content.slice(0, content.indexOf('`'));
+                      let improvedCode = await improveCodeSecurity(
+                        chats[currentChatIndex].config,
+                        blockContent,
+                        blockLanguage,
+                      );
+
+                      const indentedImprovedCode = improvedCode.split('\n').map(line => indent + line).join('\n');
+                      const codeBlock = indent + '```' + (blockLanguage ? blockLanguage : '') + '\n' + indentedImprovedCode + '\n' + indent + '```';
+                      updatedMessages[updatedMessages.length - 1].content = updatedMessages[updatedMessages.length - 1].content.replace(blockPlaceholder(blockLanguage, indent), codeBlock);
+                      setChats(updatedChats);
+                      output += content.slice(content.lastIndexOf('`') + 1);
+                      inBlock = false;
+                      blockContent = '';
+                      blockLanguage = '';
+                      blockLanguageChecked = false;
+                      backticks = '';
+                    } else {
+                      // Start of a code block
+                      inBlock = true;
+
+                      const lines = (updatedMessages[updatedMessages.length - 1].content + content.slice(0, content.indexOf('`'))).split('\n');
+                      // Capture initial indentation from current content line
+                      if (lines.length > 1) {
+                        const match = lines[lines.length - 1].match(/^\s*/);
+                        if (match) {
+                          indent = match[0]; // Extract leading spaces
+                        }
+                      }
+
+                      updatedMessages[updatedMessages.length - 1].content += content.slice(0, content.indexOf('`')) + blockPlaceholder('', indent);
+                      setChats(updatedChats);
+                      blockContent = content.slice(content.lastIndexOf('`') + 1);
+                      backticks = '';
+                    }
+
+                  } else {
+                    if (!blockLanguageChecked && inBlock) {
+                      if (content.indexOf('\n') > -1) {
+                        blockLanguage = blockLanguage + content.slice(0, content.indexOf('\n')).trim();
+                        content = content.slice(content.indexOf('\n') + 1);
+                        blockLanguageChecked = true;
+                        if (blockLanguage) {
+                          updatedMessages[updatedMessages.length - 1].content = updatedMessages[updatedMessages.length - 1].content.replace(blockPlaceholder('', indent), blockPlaceholder(blockLanguage, indent));
+                          setChats(updatedChats);
+                        }
+                      } else {
+                        blockLanguage = blockLanguage + content;
+                        content = '';
+                      }
+                    }
+                    if (!inBlock) {
+                      output += content;
+                    } else if (blockLanguageChecked) {
+                      blockContent += content;
+                    }
+                  }
+
+                  if (!inBlock) {
+                    updatedMessages[updatedMessages.length - 1].content += output;
+                    setChats(updatedChats);
+                  }
+                }
+              }
+            }, Promise.resolve());
+
           } else {
             const resultString = result.reduce((output: string, curr) => {
               if (typeof curr === 'string') {
@@ -206,5 +304,145 @@ const useSubmit = () => {
 
   return { handleSubmit, error };
 };
+
+function getCodeBlocks(response: string) {
+  const regex = /```(\S*)\n(.*?)```/gs;
+
+  const codeBlocks: Array<[string, string]> = [];
+  const matches = response.matchAll(regex);
+
+  // Iterate through all matches
+  for (const match of matches) {
+    // match[1] is the first capture group (\S*), containing the language
+    // match[2] is the second capture group (.*?), containing the code
+    codeBlocks.push([match[1], match[2]]);
+  }
+  return codeBlocks;
+}
+
+const improveCodeSecurity = async (config: ConfigInterface, code: string, language: string | undefined) => {
+  const apiKey = useStore.getState().apiKey;
+  const model = config.model
+  const countTotalTokens = useStore.getState().countTotalTokens;
+
+  if (code === '' || code === undefined) {
+    return code;
+  }
+
+  let languageString = (language ? language + ' ' : '');
+
+  let critiquePrompt = 'Review the following ' + languageString + ' code and find security problems with it: \n```' + languageString.trim() + '\n' + code + '\n```';
+  let critiquePromptMessages: MessageInterface[] = [
+    {
+      role: 'user',
+      content: critiquePrompt,
+    },
+  ];
+
+  let critiqueCompletionObject = await getChatCompletion(
+    useStore.getState().apiEndpoint,
+    critiquePromptMessages,
+    config,
+    apiKey,
+  );
+
+  if(countTotalTokens) {
+    updateTotalTokenUsed(
+      model,
+      critiquePromptMessages,
+      critiqueCompletionObject
+    );
+  }
+
+  let critique = critiqueCompletionObject.choices[0].message.content;
+
+  console.log(critique);
+
+  let improvementPrompt = 'Based on the critique: \n' + critique + '\nimprove the following snippet if needed. Otherwise return the unchanged code: \n```' + languageString + '\n' + code + '\n```';
+  let improvementPromptMessages: MessageInterface[] = [
+    {
+      role: 'user',
+      content: improvementPrompt,
+    },
+  ];
+
+  let improvementCompletionObject = await getChatCompletion(
+    useStore.getState().apiEndpoint,
+    improvementPromptMessages,
+    config,
+    apiKey,
+  );
+
+  if(countTotalTokens) {
+    updateTotalTokenUsed(
+      model,
+      improvementPromptMessages,
+      improvementCompletionObject
+    );
+  }
+
+  let improvement = improvementCompletionObject.choices[0].message.content;
+
+  let codeBlocks = getCodeBlocks(improvement);
+  if (language) {
+    codeBlocks = codeBlocks.filter((block) => block[0] === language);
+  }
+
+  if (codeBlocks.length == 1) {
+    return codeBlocks[0][1];
+  } else {
+    let retries = 0;
+    while (retries < 3) {
+      let response = await extractCodeWithGPT(config, critiquePromptMessages, improvement, language);
+      let codeBlocks = getCodeBlocks(response);
+      if (language) {
+        codeBlocks = codeBlocks.filter((block) => block[0] === language);
+      }
+      if (codeBlocks.length == 1) {
+        return codeBlocks[0][1];
+      } else {
+        retries += 1;
+      }
+    }
+    console.error('Unable to get single code block after 3 retries');
+    return code;
+  }
+};
+
+async function extractCodeWithGPT(config: ConfigInterface, promptMessages: MessageInterface[], response: any, language: string | undefined): Promise<string> {
+  const apiKey = useStore.getState().apiKey;
+  const countTotalTokens = useStore.getState().countTotalTokens;
+
+
+  let languageString = (language ? language + ' ' : '');
+
+  let messages: MessageInterface[] = promptMessages;
+  messages.push(
+    {
+      role: 'user',
+      content: 'Only output the ' + languageString + 'code and nothing else.',
+    });
+
+  let extractionCompletionObject = await getChatCompletion(
+    useStore.getState().apiEndpoint,
+    messages,
+    config,
+    apiKey,
+  );
+
+  const model = config.model;
+  if(countTotalTokens) {
+    updateTotalTokenUsed(
+      model,
+      extractionCompletionObject,
+      extractionCompletionObject
+    );
+  }
+
+
+  return extractionCompletionObject.choices[0].message.content;
+
+
+}
 
 export default useSubmit;
