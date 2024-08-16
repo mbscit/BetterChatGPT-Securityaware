@@ -18,7 +18,7 @@ This feature can be enabled or disabled for each individual prompt. When enabled
 <p align="center">
         <img src="assets/code_security_prefix.png" alt="landing" width=500 />
 </p>
-<span>This prefix reduced the number code vulnerabilities on average by 47% for gpt-4o-mini, and by 56% for gpt-4o (snapshot 2024-05-13) on the <a href="https://github.com/mbscit/sec_prompt_benchmark">Secure Prompt Benchmark</a>.</span>
+<span>This prefix reduced the number code vulnerabilities on average by 47% for gpt-4o-mini, and by 56% for gpt-4o (snapshot 2024-08-06) on the <a href="https://github.com/mbscit/sec_prompt_benchmark">Secure Prompt Benchmark</a>.</span>
 
 ### Code Security Agent (Experimental)
 The "Code Security Agent" and can be enabled in the settings.
